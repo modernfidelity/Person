@@ -22,8 +22,11 @@ Administration > Content > Persons
 
 Keep in mind that you need to create some Person Types before you can add entities.
 
-Finally, you can play theme the person entity with person.tpl.php and
-person-sample-data.tpl.php
+Finally, you can theme the person entity with person.tpl.php and person-sample-data.tpl.php
 
 
+Contact
+-------
+
+@modernfidelity
 
