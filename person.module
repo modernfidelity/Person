@@ -1,0 +1,489 @@
+<?php
+
+/**
+ * @file
+ * Module for the person Entity - a starting point to create your own Entity
+ * and associated administration interface
+ */  
+
+
+/**
+ * Implement hook_entity_info().
+ *
+ * We define two entities here - the actual entity that will hold our domain
+ * specific information and an entity that holds information about the different
+ * types of entities. See here: http://drupal.org/node/977380 for a discussion on this
+ * choice.
+ */
+function person_entity_info() {
+  $return['person'] = array(
+    'label' => t('Person'),
+    // The entity class and controller class extend the classes provided by the
+    // Entity API
+    'entity class' => 'person',
+    'controller class' => 'PersonController',
+    'base table' => 'person',
+    'fieldable' => TRUE,
+    'entity keys' => array(
+        'id' => 'person_id',
+        'bundle' => 'type',
+    ),
+    // Bundles are defined by the person types below
+    'bundles' => array(),
+    // Bundle keys tell the FieldAPI how to extract information from the bundle objects
+    'bundle keys' => array(
+      'bundle' => 'type',
+    ),
+    'label callback' => 'entity_class_label',
+    'uri callback' => 'entity_class_uri',
+    'creation callback' => 'person_create',
+    'access callback' => 'person_access',
+    'module' => 'person',
+    // The information below is used by the personUIController (which extends the EntityDefaultUIController)
+    'admin ui' => array(
+      'path' => 'admin/content/persons',
+      'file' => 'person.admin.inc',
+      'controller class' => 'PersonUIController',
+      'menu wildcard' => '%person',
+    ),
+  );
+  // The entity that holds information about the entity types	  
+  $return['person_type'] = array(
+    'label' => t('person Type'),
+    'entity class' => 'personType',
+    'controller class' => 'PersonTypeController',
+    'base table' => 'person_type',
+    'fieldable' => FALSE,
+    'bundle of' => 'person',
+    'exportable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'name' => 'type',
+      'label' => 'label',
+    ),
+    'access callback' => 'person_type_access',
+    'module' => 'person',
+    // Enable the entity API's admin UI.
+    'admin ui' => array(
+      'path' => 'admin/structure/person_types',
+      'file' => 'person_type.admin.inc',
+      'controller class' => 'PersonTypeUIController',
+    ),
+  );
+
+  return $return;
+}
+
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * We are adding the info about the person types via a hook to avoid a recursion
+ * issue as loading the person types requires the entity info as well.
+ *
+ * @todo This needs to be improved
+ */
+function person_entity_info_alter(&$entity_info) {
+  foreach (person_get_types() as $type => $info) {
+    $entity_info['person']['bundles'][$type] = array(
+      'label' => $info->label,
+      'admin' => array(
+        'path' => 'admin/structure/person_types/manage/%person_type',
+        'real path' => 'admin/structure/person_types/manage/' . $type,
+        'bundle argument' => 4,
+        'access arguments' => array('administer person types'),
+      ),
+    );
+  }
+}
+  
+
+/**
+ * Implements hook_permission().
+ */
+function person_permission() {
+  // We set up permisssions to manage entity types, manage all entities and the
+  // permissions for each individual entity
+  $permissions = array(
+    'administer person types' => array(
+      'title' => t('Administer person types'),
+      'description' => t('Create and delete fields for person types, and set their permissions.'),
+    ),
+    'administer persons' => array(
+      'title' => t('Administer persons'),
+      'description' => t('Edit and delete all persons'),
+    ),  
+  );
+  
+  //Generate permissions per person 
+  foreach (person_get_types() as $type) {
+    $type_name = check_plain($type->type);
+    $permissions += array(
+      "edit any $type_name person" => array(
+        'title' => t('%type_name: Edit any person', array('%type_name' => $type->label)),
+      ),
+      "view any $type_name person" => array(
+        'title' => t('%type_name: View any person', array('%type_name' => $type->label)),
+      ),
+    );
+  }
+  return $permissions;  
+}
+
+
+/**
+ * Determines whether the given user has access to a person.
+ *
+ * @param $op
+ *   The operation being performed. One of 'view', 'update', 'create', 'delete'
+ *   or just 'edit' (being the same as 'create' or 'update').
+ * @param $person
+ *   Optionally a person or a person type to check access for. If nothing is
+ *   given, access for all persons is determined.
+ * @param $account
+ *   The user to check for. Leave it to NULL to check for the global user.
+ * @return boolean
+ *   Whether access is allowed or not.
+ */
+function person_access($op, $person = NULL, $account = NULL) {
+  if (user_access('administer persons', $account)) {
+    return TRUE;
+  }
+  if (isset($person) && $type_name = $person->type) {
+    $op = ($op == 'view') ? 'view' : 'edit';
+    if (user_access("$op any $type_name person", $account)) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+
+/**
+ * Access callback for the entity API.
+ */
+function person_type_access($op, $type = NULL, $account = NULL) {
+  return user_access('administer person types', $account);
+}
+
+
+/**
+ * Gets an array of all person types, keyed by the type name.
+ *
+ * @param $type_name
+ *   If set, the type with the given name is returned.
+ * @return personType[]
+ *   Depending whether $type isset, an array of person types or a single one.
+ */
+function person_get_types($type_name = NULL) {
+  // entity_load will get the Entity controller for our person entity and call the load
+  // function of that object - we are loading entities by name here.
+  $types = entity_load_multiple_by_name('person_type', isset($type_name) ? array($type_name) : FALSE);
+  return isset($type_name) ? reset($types) : $types;
+}
+
+
+/**
+ * Menu argument loader; Load a person type by string.
+ *
+ * @param $type
+ *   The machine-readable name of a person type to load.
+ * @return
+ *   A person type array or FALSE if $type does not exist.
+ */
+function person_type_load($type) {
+  return person_get_types($type);
+}
+
+
+/**
+ * Fetch a person object. Make sure that the wildcard you choose 
+ * in the person entity definition fits the function name here.
+ *
+ * @param $person_id
+ *   Integer specifying the person id.
+ * @param $reset
+ *   A boolean indicating that the internal cache should be reset.
+ * @return
+ *   A fully-loaded $person object or FALSE if it cannot be loaded.
+ *
+ * @see person_load_multiple()
+ */
+function person_load($person_id, $reset = FALSE) {
+  $persons = person_load_multiple(array($person_id), array(), $reset);
+  return reset($persons);
+}
+
+
+/**
+ * Load multiple persons based on certain conditions.
+ *
+ * @param $person_ids
+ *   An array of person IDs.
+ * @param $conditions
+ *   An array of conditions to match against the {person} table.
+ * @param $reset
+ *   A boolean indicating that the internal cache should be reset.
+ * @return
+ *   An array of person objects, indexed by person_id.
+ *
+ * @see entity_load()
+ * @see person_load()
+ */
+function person_load_multiple($person_ids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('person', $person_ids, $conditions, $reset);
+}
+
+
+/**
+ * Deletes a person.
+ */
+function person_delete(person $person) {
+  $person->delete();
+}
+
+
+/**
+ * Delete multiple persons.
+ *
+ * @param $person_ids
+ *   An array of person IDs.
+ */
+function person_delete_multiple(array $person_ids) {
+  entity_get_controller('person')->delete($person_ids);
+}
+
+
+/**
+ * Create a person object.
+ */
+function person_create($values = array()) {
+  return entity_get_controller('person')->create($values);
+}
+
+
+/**
+ * Saves a person to the database.
+ *
+ * @param $person
+ *   The person object.
+ */
+function person_save(person $person) {
+  return $person->save();
+}
+
+
+/**
+ * Saves a person type to the db.
+ */
+function person_type_save(personType $type) {
+  $type->save();
+}
+
+
+/**
+ * Deletes a person type from the db.
+ */
+function person_type_delete(personType $type) {
+  $type->delete();
+}
+
+
+/**
+ * URI callback for persons
+ */
+function person_uri(person $person){
+  return array(
+    'path' => 'person/' . $person->person_id,
+  );
+}
+
+
+/**
+ * Menu title callback for showing individual entities
+ */
+function person_page_title(person $person){
+  return $person->name;
+}
+
+
+/**
+ * Sets up content to show an individual person
+ * @todo - get rid of drupal_set_title();
+ */
+function person_page_view($person, $view_mode = 'full') {    
+  $controller = entity_get_controller('person');  
+  $content = $controller->view(array($person->person_id => $person));
+  drupal_set_title($person->name);
+  return $content;
+}
+
+
+/**
+ * Implements hook_views_api().
+ */
+function person_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'person') . '/views',
+  );
+}
+
+
+/**
+ * Implement hook_theme().
+ */
+function person_theme() {
+  return array(
+    'person_add_list' => array(
+      'variables' => array('content' => array()),
+      'file' => 'person.admin.inc',
+    ),
+    'person' => array(
+      'render element' => 'elements',
+      'template' => 'person',
+    ),
+   'person_sample_data' => array(
+      'variables' => array('person_sample_data', 'person' => NULL),
+      'template' => 'person-sample-data',
+    ),
+
+
+  );
+}  
+
+
+/**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function person_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  // Add action link 'admin/structure/persons/add' on 'admin/structure/persons'.
+  if ($root_path == 'admin/content/persons') {
+    $item = menu_get_item('admin/content/persons/add');
+    if ($item['access']) {
+      $data['actions']['output'][] = array(
+        '#theme' => 'menu_local_action',
+        '#link' => $item,
+      );
+    }
+  }
+}
+
+
+/**
+ * The class used for person entities
+ */
+class Person extends Entity {
+  
+  public function __construct($values = array()) {
+    parent::__construct($values, 'person');
+  }
+
+  protected function defaultLabel() {
+    return $this->name;
+  }
+
+  protected function defaultUri() {
+    return array('path' => 'person/' . $this->person_id);
+  }
+  
+  
+}
+
+
+/**
+ * The class used for person type entities
+ */
+class PersonType extends Entity {
+  
+  public $type;
+  public $label;
+  
+  public function __construct($values = array()) {
+    parent::__construct($values, 'person_type');
+  }
+  
+}
+
+
+/**
+ * The Controller for person entities
+ */
+class PersonController extends EntityAPIController {
+  public function __construct($entityType) {
+    parent::__construct($entityType);
+  }
+
+
+  /**
+   * Create a person - we first set up the values that are specific
+   * to our person schema but then also go through the EntityAPIController
+   * function.
+   * 
+   * @param $type
+   *   The machine-readable type of the person.
+   *
+   * @return
+   *   A person object with all default fields initialized.
+   */
+  public function create(array $values = array()) {
+    // Add values that are specific to our person
+    $values += array( 
+      'person_id' => '',
+      'is_new' => TRUE,
+      'title' => '',
+      'created' => '',
+      'changed' => '',
+      'data' => '',
+    );
+    
+    $person = parent::create($values);
+    return $person;
+  }
+  
+  /**
+   * Overriding the buldContent function to add entity specific fields
+   */
+  public function buildContent($entity, $view_mode = 'full', $langcode = NULL, $content = array()) {
+    $content = parent::buildContent($entity, $view_mode, $langcode, $content);
+    $content['person_sample_data'] =  array(
+      '#markup' => theme('person_sample_data', array('person_sample_data' => check_plain($entity->data['sample_data']), 'person' => $entity)),
+    );
+
+    return $content;
+  }
+  
+}
+
+
+/**
+ * The Controller for person entities
+ */
+class personTypeController extends EntityAPIControllerExportable {
+  public function __construct($entityType) {
+    parent::__construct($entityType);
+  }
+  
+   /**
+   * Create a person type - we first set up the values that are specific
+   * to our person type schema but then also go through the EntityAPIController
+   * function.
+   * 
+   * @param $type
+   *   The machine-readable type of the person.
+   *
+   * @return
+   *   A person type object with all default fields initialized.
+   */
+  public function create(array $values = array()) {
+    // Add values that are specific to our person
+    $values += array( 
+      'id' => '',
+      'is_new' => TRUE,
+      'data' => '',
+    );
+    $person_type = parent::create($values);
+    return $person_type;
+  }
+
+}

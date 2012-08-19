@@ -1,0 +1,15 @@
+name = Person
+description = Provides a "Person" entity; useful for managing people in the system who aren't website users.
+core = 7.x
+version = "7.x-1.0-dev"
+
+dependencies[] = entity
+dependencies[] = views
+
+files[] = person.admin.inc
+files[] = person_type.admin.inc
+files[] = views/person.views.inc
+files[] = views/person_handler_link_field.inc
+files[] = views/person_handler_delete_link_field.inc
+files[] = views/person_handler_edit_link_field.inc
+files[] = views/person_handler_person_operations_field.inc
