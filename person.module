@@ -2,8 +2,8 @@
 
 /**
  * @file
- * Module for the person Entity - a starting point to create your own Entity
- * and associated administration interface
+ * Module for the Person Entity - provides a starting point and associated administration interface, 
+ * to help manage people within the system who aren't website users
  */  
 
 
@@ -20,7 +20,7 @@ function person_entity_info() {
     'label' => t('Person'),
     // The entity class and controller class extend the classes provided by the
     // Entity API
-    'entity class' => 'person',
+    'entity class' => 'Person',
     'controller class' => 'PersonController',
     'base table' => 'person',
     'fieldable' => TRUE,
@@ -49,8 +49,8 @@ function person_entity_info() {
   );
   // The entity that holds information about the entity types	  
   $return['person_type'] = array(
-    'label' => t('person Type'),
-    'entity class' => 'personType',
+    'label' => t('Person Type'),
+    'entity class' => 'PersonType',
     'controller class' => 'PersonTypeController',
     'base table' => 'person_type',
     'fieldable' => FALSE,
