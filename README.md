@@ -2,6 +2,7 @@ Drupal 7 'Person Entity' Module
 ===============================
 
 core = 7.x
+
 version = "7.x-1.0-dev"
 
 Introduction
