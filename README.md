@@ -1,5 +1,5 @@
-Drupal Person Module
-====================
+Drupal 7 'Person Entity' Module
+===============================
 
 core = 7.x
 version = "7.x-1.0-dev"
@@ -21,8 +21,7 @@ Administration > Content > Persons
 
 Keep in mind that you need to create some Person Types before you can add entities.
 
-
-Finally you can play around within the theming for the person entity with person.tpl.php and
+Finally, you can play theme the person entity with person.tpl.php and
 person-sample-data.tpl.php
 
 
