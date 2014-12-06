@@ -149,7 +149,12 @@ function person_access($op, $person = NULL, $account = NULL) {
   if (user_access('administer persons', $account)) {
     return TRUE;
   }
-  if (isset($person) && $type_name = $person->type) {
+  if (isset($person)) {
+    if (is_object($person)) {
+      $type_name = $person->type;
+    } else {
+      $type_name = substr($person,4);
+    }
     $op = ($op == 'view') ? 'view' : 'edit';
     if (user_access("$op any $type_name person", $account)) {
       return TRUE;
