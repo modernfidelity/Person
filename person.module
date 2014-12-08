@@ -46,6 +46,20 @@ function person_entity_info() {
       'controller class' => 'PersonUIController',
       'menu wildcard' => '%person',
     ),
+    'view modes' => array(
+        'full' => array(
+            'label' => t('Full'),
+            'custom settings' => FALSE,
+        ),
+        'embed' => array(
+            'label' => t('Embed'),
+            'custom settings' => FALSE,
+        ),
+        'teaser' => array(
+            'label' => t('Teaser'),
+            'custom settings' => FALSE,
+        ),
+    ),
   );
   // The entity that holds information about the entity types	  
   $return['person_type'] = array(
